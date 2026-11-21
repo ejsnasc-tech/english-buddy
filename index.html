@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>English Buddy</title>
+<style>
+  :root { --bg:#f5f7fb; --card:#fff; --pri:#2563eb; --txt:#1f2937; --mut:#6b7280; --ok:#16a34a; --bad:#dc2626; --line:#d1d5db; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0f172a; --card:#1e293b; --pri:#3b82f6; --txt:#e5e7eb; --mut:#94a3b8; --line:#334155; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,sans-serif; background:var(--bg); color:var(--txt); min-height:100dvh; }
+  header { background:var(--card); box-shadow:0 1px 4px #0002; padding:12px 16px; }
+  header h1 { margin:0 0 8px; font-size:18px; }
+  nav { display:flex; gap:6px; flex-wrap:wrap; }
+  nav button { background:transparent; color:var(--mut); border:1px solid var(--line); }
+  nav button.on { background:var(--pri); color:#fff; border-color:var(--pri); }
+  button { cursor:pointer; border:0; border-radius:8px; padding:9px 14px; background:var(--pri); color:#fff; font-size:15px; }
+  button.ghost { background:transparent; color:var(--txt); border:1px solid var(--line); }
+  main { max-width:560px; margin:0 auto; padding:16px; }
+  .card { background:var(--card); border-radius:14px; padding:24px 20px; text-align:center; box-shadow:0 2px 8px #0002; }
+  .big { font-size:34px; font-weight:700; margin:6px 0; }
+  .mut { color:var(--mut); font-size:14px; }
+  .ex { margin-top:12px; font-size:16px; }
+  .row { display:flex; gap:10px; justify-content:center; margin-top:18px; flex-wrap:wrap; }
+  .ok { background:var(--ok); } .bad { background:var(--bad); }
+  .opts { display:grid; gap:10px; margin-top:16px; }
+  .opts button { background:var(--card); color:var(--txt); border:2px solid var(--line); text-align:left; padding:12px 14px; }
+  .opts button.right { border-color:var(--ok); background:#16a34a22; }
+  .opts button.wrong { border-color:var(--bad); background:#dc262622; }
+  .bar { height:8px; background:var(--line); border-radius:4px; overflow:hidden; margin-bottom:14px; }
+  .bar i { display:block; height:100%; background:var(--pri); }
+  table { width:100%; border-collapse:collapse; margin-top:10px; }
+  td { padding:8px; border-bottom:1px solid var(--line); }
+</style>
+</head>
+<body>
+<header>
+  <h1>🇬🇧 English Buddy</h1>
+  <nav id="nav">
+    <button data-t="flash" class="on">🃏 Flashcards</button>
+    <button data-t="enpt">📝 Quiz EN→PT</button>
+    <button data-t="pten">✍️ Quiz PT→EN</button>
+    <button data-t="listen">🎧 Escuta</button>
+    <button data-t="prog">📊 Progresso</button>
+    <button onclick="location.href='speaking.html'">🎤 Falar (diálogos)</button>
+  </nav>
+</header>
+<main id="main"></main>
+
+<script>
+// [inglês, português, exemplo em inglês, exemplo em português]
+const WORDS = [
+ ['hello','olá','Hello, my name is Ana.','Olá, meu nome é Ana.'],
+ ['goodbye','tchau','Goodbye! See you tomorrow.','Tchau! Vejo você amanhã.'],
+ ['please','por favor','Water, please.','Água, por favor.'],
+ ['thank you','obrigado','Thank you for your help.','Obrigado pela sua ajuda.'],
+ ['sorry','desculpe','Sorry, I am late.','Desculpe, estou atrasado.'],
+ ['yes','sim','Yes, I like it.','Sim, eu gosto.'],
+ ['no','não','No, thank you.','Não, obrigado.'],
+ ['good morning','bom dia','Good morning, Mom!','Bom dia, mãe!'],
+ ['good night','boa noite','Good night, see you tomorrow.','Boa noite, até amanhã.'],
+ ['how are you?','como vai você?','Hi! How are you?','Oi! Como vai você?'],
+ ['mother','mãe','My mother is nice.','Minha mãe é legal.'],
+ ['father','pai','My father works here.','Meu pai trabalha aqui.'],
+ ['brother','irmão','I have one brother.','Eu tenho um irmão.'],
+ ['sister','irmã','My sister is happy.','Minha irmã está feliz.'],
+ ['friend','amigo','He is my friend.','Ele é meu amigo.'],
+ ['family','família','I love my family.','Eu amo minha família.'],
+ ['water','água','I drink water.','Eu bebo água.'],
+ ['bread','pão','I eat bread.','Eu como pão.'],
+ ['milk','leite','The milk is cold.','O leite está gelado.'],
+ ['coffee','café','I want coffee.','Eu quero café.'],
+ ['rice','arroz','Rice and beans, please.','Arroz e feijão, por favor.'],
+ ['apple','maçã','The apple is red.','A maçã é vermelha.'],
+ ['chicken','frango','I like chicken.','Eu gosto de frango.'],
+ ['food','comida','The food is good.','A comida é boa.'],
+ ['to eat','comer','I eat at home.','Eu como em casa.'],
+ ['to drink','beber','I drink milk.','Eu bebo leite.'],
+ ['to go','ir','I go to school.','Eu vou para a escola.'],
+ ['to have','ter','I have a dog.','Eu tenho um cachorro.'],
+ ['to want','querer','I want water.','Eu quero água.'],
+ ['to like','gostar','I like music.','Eu gosto de música.'],
+ ['to work','trabalhar','I work every day.','Eu trabalho todo dia.'],
+ ['to sleep','dormir','I sleep at night.','Eu durmo à noite.'],
+ ['to read','ler','I read a book.','Eu leio um livro.'],
+ ['to speak','falar','I speak a little English.','Eu falo um pouco de inglês.'],
+ ['house','casa','My house is big.','Minha casa é grande.'],
+ ['school','escola','The school is near.','A escola é perto.'],
+ ['city','cidade','I live in a big city.','Eu moro em uma cidade grande.'],
+ ['street','rua','The street is long.','A rua é longa.'],
+ ['store','loja','The store is open.','A loja está aberta.'],
+ ['big','grande','It is a big house.','É uma casa grande.'],
+ ['small','pequeno','I have a small dog.','Eu tenho um cachorro pequeno.'],
+ ['good','bom','This is good.','Isto é bom.'],
+ ['bad','ruim','The weather is bad.','O tempo está ruim.'],
+ ['happy','feliz','I am happy today.','Estou feliz hoje.'],
+ ['tired','cansado','I am tired.','Estou cansado.'],
+ ['hot','quente','The coffee is hot.','O café está quente.'],
+ ['cold','frio','The water is cold.','A água está fria.'],
+ ['today','hoje','Today is Monday.','Hoje é segunda-feira.'],
+ ['tomorrow','amanhã','See you tomorrow.','Vejo você amanhã.'],
+ ['yesterday','ontem','I worked yesterday.','Eu trabalhei ontem.'],
+ ['day','dia','It is a nice day.','É um dia bonito.'],
+ ['night','noite','I sleep at night.','Eu durmo à noite.'],
+ ['week','semana','I work five days a week.','Eu trabalho cinco dias por semana.'],
+ ['one','um','I have one brother.','Eu tenho um irmão.'],
+ ['two','dois','I have two dogs.','Eu tenho dois cachorros.'],
+ ['three','três','Three apples, please.','Três maçãs, por favor.'],
+ ['ten','dez','I am ten minutes late.','Estou dez minutos atrasado.'],
+ ['what','o que','What is this?','O que é isto?'],
+ ['where','onde','Where is the school?','Onde fica a escola?'],
+ ['who','quem','Who is he?','Quem é ele?'],
+ ['why','por que','Why are you sad?','Por que você está triste?'],
+ ['when','quando','When is the class?','Quando é a aula?']
+];
+
+const $ = s => document.querySelector(s);
+const main = $('#main');
+const DAY = 86400000, INTERVALS = [0,1,2,4,8,16], NEW_PER_DAY = 10;
+let st = JSON.parse(localStorage.getItem('eb_state') || '{"cards":{},"newDay":"","newN":0}');
+const save = () => localStorage.setItem('eb_state', JSON.stringify(st));
+const shuffle = a => a.map(v => [Math.random(), v]).sort((x, y) => x[0] - y[0]).map(x => x[1]);
+const today = () => new Date().toISOString().slice(0, 10);
+
+function speak(t) {
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(t.replace('?', ''));
+  u.lang = 'en-US'; u.rate = 0.85;
+  speechSynthesis.speak(u);
+}
+
+function grade(w, ok) {
+  let c = st.cards[w[0]];
+  if (!c) {
+    c = st.cards[w[0]] = { box: 0, due: 0 };
+    if (st.newDay !== today()) { st.newDay = today(); st.newN = 0; }
+    st.newN++;
+  }
+  if (ok) { c.box = Math.min(c.box + 1, 5); c.due = Date.now() + INTERVALS[c.box] * DAY; }
+  else { c.box = 0; c.due = Date.now(); }
+  save();
+}
+
+/* ---------- Flashcards ---------- */
+let queue = [], total = 0;
+function startFlash() {
+  if (st.newDay !== today()) { st.newDay = today(); st.newN = 0; save(); }
+  const now = Date.now();
+  const due = WORDS.filter(w => st.cards[w[0]] && st.cards[w[0]].due <= now);
+  const left = Math.max(0, NEW_PER_DAY - st.newN);
+  const fresh = WORDS.filter(w => !st.cards[w[0]]).slice(0, left);
+  queue = shuffle(due).concat(fresh);
+  total = queue.length;
+  showFlash(false);
+}
+function showFlash(flipped) {
+  if (!queue.length) {
+    main.innerHTML = `<div class="card"><div class="big">🎉</div><p>Acabou por hoje!</p>
+      <p class="mut">Volte amanhã para revisar. Você pode treinar nos quizzes enquanto isso.</p></div>`;
+    return;
+  }
+  const w = queue[0];
+  const pct = Math.round((total - queue.length) / total * 100);
+  main.innerHTML = `<div class="bar"><i style="width:${pct}%"></i></div>
+   <div class="card">
+    <div class="mut">Inglês</div>
+    <div class="big">${w[0]}</div>
+    <button class="ghost" id="say">🔊 Ouvir</button>
+    ${flipped ? `<div class="big" style="font-size:26px;color:var(--pri)">${w[1]}</div>
+      <div class="ex">${w[2]}<br><span class="mut">${w[3]}</span></div>
+      <div class="row"><button class="bad" id="no">😕 Errei</button><button class="ok" id="yes">😀 Acertei</button></div>`
+    : `<div class="row"><button id="flip">Mostrar tradução</button></div>`}
+   </div>`;
+  $('#say').onclick = () => speak(w[0]);
+  if (!flipped) { speak(w[0]); $('#flip').onclick = () => showFlash(true); }
+  else {
+    $('#yes').onclick = () => { grade(w, true); queue.shift(); showFlash(false); };
+    $('#no').onclick = () => { grade(w, false); queue.push(queue.shift()); showFlash(false); };
+  }
+}
+
+/* ---------- Quiz (enpt, pten, listen) ---------- */
+let qz;
+function startQuiz(mode) {
+  qz = { mode, items: shuffle(WORDS).slice(0, 10), i: 0, score: 0 };
+  showQ();
+}
+function showQ() {
+  if (qz.i >= qz.items.length) {
+    const s = qz.score, n = qz.items.length;
+    main.innerHTML = `<div class="card"><div class="big">${s} / ${n}</div>
+      <p>${s === n ? 'Perfeito! 🌟' : s >= n * 0.7 ? 'Muito bem! 👏' : 'Continue praticando! 💪'}</p>
+      <div class="row"><button id="again">Jogar de novo</button></div></div>`;
+    $('#again').onclick = () => startQuiz(qz.mode);
+    return;
+  }
+  const w = qz.items[qz.i], m = qz.mode;
+  const toEN = m === 'pten' || m === 'listen';          // opções em inglês?
+  const opts = shuffle([w, ...shuffle(WORDS.filter(x => x !== w)).slice(0, 3)]);
+  const prompt = m === 'enpt' ? `<div class="big">${w[0]}</div>`
+               : m === 'pten' ? `<div class="big">${w[1]}</div>`
+               : `<div class="big">🎧</div><button class="ghost" id="say">🔊 Ouvir de novo</button>`;
+  const title = m === 'enpt' ? 'O que significa?' : m === 'pten' ? 'Como se diz em inglês?' : 'O que você ouviu?';
+  main.innerHTML = `<div class="bar"><i style="width:${qz.i / qz.items.length * 100}%"></i></div>
+    <div class="card"><div class="mut">${title} (${qz.i + 1}/${qz.items.length})</div>${prompt}
+    <div class="opts">${opts.map((o, k) => `<button data-k="${k}">${toEN ? o[0] : o[1]}</button>`).join('')}</div></div>`;
+  if (m === 'listen') { $('#say').onclick = () => speak(w[0]); speak(w[0]); }
+  if (m === 'enpt') speak(w[0]);
+  main.querySelectorAll('.opts button').forEach(b => b.onclick = () => {
+    const ok = opts[b.dataset.k] === w;
+    if (ok) qz.score++;
+    grade(w, ok);
+    main.querySelectorAll('.opts button').forEach((x, k) => {
+      x.disabled = true;
+      if (opts[k] === w) x.classList.add('right');
+    });
+    if (!ok) b.classList.add('wrong');
+    if (toEN) speak(w[0]);
+    setTimeout(() => { qz.i++; showQ(); }, ok ? 900 : 1800);
+  });
+}
+
+/* ---------- Progresso ---------- */
+function showProg() {
+  const boxes = [0,0,0,0,0,0]; let seen = 0;
+  Object.values(st.cards).forEach(c => { boxes[c.box]++; seen++; });
+  const names = ['Aprendendo','Nível 1','Nível 2','Nível 3','Nível 4','Dominada'];
+  main.innerHTML = `<div class="card"><div class="big">${seen} / ${WORDS.length}</div>
+    <p class="mut">palavras já vistas</p>
+    <table>${boxes.map((n, i) => `<tr><td>${names[i]}</td><td style="text-align:right"><b>${n}</b></td></tr>`).join('')}</table>
+    <div class="row"><button class="ghost" id="rst">Zerar progresso</button></div></div>`;
+  $('#rst').onclick = () => { if (confirm('Apagar todo o progresso?')) { st = { cards:{}, newDay:'', newN:0 }; save(); showProg(); } };
+}
+
+/* ---------- Navegação ---------- */
+function go(t) {
+  document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('on', b.dataset.t === t));
+  if (t === 'flash') startFlash();
+  else if (t === 'prog') showProg();
+  else startQuiz(t);
+}
+document.querySelectorAll('#nav button').forEach(b => b.onclick = () => go(b.dataset.t));
+go('flash');
+</script>
+</body>
+</html>

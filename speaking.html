@@ -1,0 +1,427 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>English Buddy - Speaking</title>
+<style>
+  :root { --bg:#f5f7fb; --card:#fff; --pri:#2563eb; --txt:#1f2937; --mut:#6b7280; --ok:#16a34a; --bad:#dc2626; --line:#d1d5db; --ai:#eef2ff; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0f172a; --card:#1e293b; --pri:#3b82f6; --txt:#e5e7eb; --mut:#94a3b8; --line:#334155; --ai:#273449; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,sans-serif; background:var(--bg); color:var(--txt); min-height:100dvh; }
+  header { background:var(--card); box-shadow:0 1px 4px #0002; padding:12px 16px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  header h1 { margin:0; font-size:18px; flex:1; }
+  header a { color:var(--pri); font-size:14px; }
+  button { cursor:pointer; border:0; border-radius:8px; padding:9px 14px; background:var(--pri); color:#fff; font-size:15px; }
+  button.ghost { background:transparent; color:var(--txt); border:1px solid var(--line); }
+  button:disabled { opacity:.5; cursor:default; }
+  main { max-width:620px; margin:0 auto; padding:16px; }
+  .mode { display:flex; gap:6px; margin-bottom:14px; align-items:center; }
+  .mode span { color:var(--mut); font-size:14px; }
+  .mode button.on { background:var(--pri); color:#fff; border-color:var(--pri); }
+  .scn { display:block; width:100%; text-align:left; background:var(--card); color:var(--txt); border:1px solid var(--line); padding:14px; margin-bottom:10px; border-radius:12px; }
+  .scn b { font-size:17px; } .scn small { display:block; color:var(--mut); margin-top:4px; }
+  .bubble { max-width:85%; padding:10px 14px; border-radius:14px; margin:8px 0; line-height:1.4; }
+  .npc { background:var(--ai); border-bottom-left-radius:4px; }
+  .me { background:var(--pri); color:#fff; margin-left:auto; border-bottom-right-radius:4px; }
+  .pt { display:block; font-size:13px; opacity:.75; margin-top:3px; }
+  .choice { background:var(--card); border:2px solid var(--line); border-radius:12px; padding:12px; margin:10px 0; }
+  .choice .en { font-size:18px; font-weight:600; }
+  .choice .row { display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; }
+  .res { margin-top:10px; font-size:16px; }
+  .w-ok { color:var(--ok); font-weight:600; } .w-bad { color:var(--bad); font-weight:600; text-decoration:underline; }
+  .score { font-weight:700; }
+  .kw { padding:0 2px; border-radius:4px; transition:background .1s; }
+  .kw.on { background:#fde04788; }
+  .mic.rec { background:var(--bad); animation:p 1s infinite; }
+  @keyframes p { 50% { opacity:.6; } }
+  .note { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:10px 12px; font-size:13px; color:var(--mut); margin-bottom:12px; }
+  .end { text-align:center; background:var(--card); border-radius:14px; padding:24px; box-shadow:0 2px 8px #0002; }
+  .end .big { font-size:36px; font-weight:700; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🎤 English Buddy — Speaking</h1>
+  <a href="index.html">← Flashcards</a>
+</header>
+<main id="main"></main>
+
+<script>
+/* ===== Cenários =====
+   Cada nó: npc = fala do Buddy; ch = opções do aluno [inglês, português, próximo nó (null = fim)] */
+const SCENARIOS = [
+ { id:'cafe', icon:'☕', name:'Na cafeteria', desc:'Peça um café e pague.', start:'a0', n:{
+   a0:{ npc:["Hi! Welcome. What would you like?","Oi! Bem-vindo. O que você gostaria?"], ch:[
+        ["I would like a coffee, please.","Eu gostaria de um café, por favor.",'a1'],
+        ["Can I have a glass of water, please?","Pode me dar um copo de água, por favor?",'a1w']]},
+   a1:{ npc:["Sure! Do you want milk in your coffee?","Claro! Você quer leite no café?"], ch:[
+        ["Yes, with milk, please.","Sim, com leite, por favor.",'a2'],
+        ["No, thank you. Black, please.","Não, obrigado. Puro, por favor.",'a2']]},
+   a1w:{ npc:["Of course. Anything to eat?","Claro. Algo para comer?"], ch:[
+        ["No, thank you.","Não, obrigado.",'a2'],
+        ["Yes, a piece of bread, please.","Sim, um pedaço de pão, por favor.",'a2']]},
+   a2:{ npc:["Okay! That is three dollars.","Certo! São três dólares."], ch:[
+        ["Here you are.","Aqui está.",'a3'],
+        ["Can I pay by card?","Posso pagar no cartão?",'a3']]},
+   a3:{ npc:["Thank you! Have a nice day!","Obrigado! Tenha um bom dia!"], ch:[
+        ["Thank you, goodbye!","Obrigado, tchau!",null],
+        ["You too! See you tomorrow.","Você também! Até amanhã.",null]]}
+ }},
+ { id:'intro', icon:'👋', name:'Conhecendo alguém', desc:'Apresente-se e fale de você.', start:'b0', n:{
+   b0:{ npc:["Hello! My name is Sam. What is your name?","Olá! Meu nome é Sam. Qual é o seu nome?"], ch:[
+        ["Hello, my name is Alex. Nice to meet you.","Olá, meu nome é Alex. Prazer em conhecer você.",'b1'],
+        ["Hi, I am Alex.","Oi, eu sou o Alex.",'b1']]},
+   b1:{ npc:["Nice to meet you! Where are you from?","Prazer! De onde você é?"], ch:[
+        ["I am from Brazil.","Eu sou do Brasil.",'b2'],
+        ["I am Brazilian. I live in a big city.","Eu sou brasileiro. Moro em uma cidade grande.",'b2']]},
+   b2:{ npc:["Cool! Do you speak English?","Legal! Você fala inglês?"], ch:[
+        ["Yes, a little.","Sim, um pouco.",'b3'],
+        ["I am learning English.","Estou aprendendo inglês.",'b3']]},
+   b3:{ npc:["Great! Do you work or study?","Ótimo! Você trabalha ou estuda?"], ch:[
+        ["I work in a store.","Eu trabalho em uma loja.",'b4'],
+        ["I study at school.","Eu estudo na escola.",'b4']]},
+   b4:{ npc:["That is nice! Let us talk again soon. Bye!","Que legal! Vamos conversar de novo em breve. Tchau!"], ch:[
+        ["Goodbye! See you tomorrow.","Tchau! Até amanhã.",null]]}
+ }},
+ { id:'dir', icon:'🗺️', name:'Pedindo direções', desc:'Descubra onde fica a escola.', start:'c0', n:{
+   c0:{ npc:["Hello! Can I help you?","Olá! Posso ajudar?"], ch:[
+        ["Excuse me, where is the school?","Com licença, onde fica a escola?",'c1'],
+        ["Excuse me, where is the store?","Com licença, onde fica a loja?",'c1']]},
+   c1:{ npc:["It is near. Go straight on this street.","É perto. Siga em frente nesta rua."], ch:[
+        ["Go straight. Okay, thank you.","Em frente. Certo, obrigado.",'c2'],
+        ["Is it far?","É longe?",'c2f']]},
+   c2f:{ npc:["No, it is five minutes from here. Then turn left.","Não, são cinco minutos daqui. Depois vire à esquerda."], ch:[
+        ["Okay, thank you very much.","Certo, muito obrigado.",'c3']]},
+   c2:{ npc:["Then turn left. It is next to the bank.","Depois vire à esquerda. Fica ao lado do banco."], ch:[
+        ["Turn left. Thank you!","Vire à esquerda. Obrigado!",'c3'],
+        ["Can you repeat, please?","Pode repetir, por favor?",'c2r']]},
+   c2r:{ npc:["Sure. Turn left, next to the bank.","Claro. Vire à esquerda, ao lado do banco."], ch:[
+        ["Thank you very much!","Muito obrigado!",'c3']]},
+   c3:{ npc:["You are welcome. Have a nice day!","De nada. Tenha um bom dia!"], ch:[
+        ["Goodbye!","Tchau!",null]]}
+ }},
+ { id:'shop', icon:'🛍️', name:'Na loja', desc:'Compre uma camisa.', start:'d0', n:{
+   d0:{ npc:["Hello! Can I help you?","Olá! Posso ajudar?"], ch:[
+        ["I want a blue shirt, please.","Eu quero uma camisa azul, por favor.",'d1'],
+        ["I am just looking, thank you.","Estou só olhando, obrigado.",'d0l']]},
+   d0l:{ npc:["Okay! Tell me if you need help.","Certo! Me avise se precisar de ajuda."], ch:[
+        ["Thank you.","Obrigado.",null]]},
+   d1:{ npc:["Sure! What size? Small, medium or big?","Claro! Qual tamanho? Pequeno, médio ou grande?"], ch:[
+        ["Small, please.","Pequeno, por favor.",'d2'],
+        ["Medium, please.","Médio, por favor.",'d2']]},
+   d2:{ npc:["Here you are. It is twenty dollars.","Aqui está. Custa vinte dólares."], ch:[
+        ["Okay, I will take it.","Certo, eu levo.",'d3'],
+        ["It is too expensive.","Está muito caro.",'d2e']]},
+   d2e:{ npc:["Oh, okay. How about this one? It is ten dollars.","Ah, certo. Que tal esta? Custa dez dólares."], ch:[
+        ["Great, I want it.","Ótimo, eu quero.",'d3']]},
+   d3:{ npc:["Great! Thank you. Have a good day!","Ótimo! Obrigado. Tenha um bom dia!"], ch:[
+        ["You too! Goodbye.","Você também! Tchau.",null]]}
+ }},
+ { id:'rest', icon:'🍽️', name:'No restaurante', desc:'Peça comida e a conta.', start:'e0', n:{
+   e0:{ npc:["Good evening! Table for how many people?","Boa noite! Mesa para quantas pessoas?"], ch:[
+        ["Table for two, please.","Mesa para dois, por favor.",'e1'],
+        ["Just me, please.","Só eu, por favor.",'e1']]},
+   e1:{ npc:["Here is the menu. What would you like to drink?","Aqui está o cardápio. O que você gostaria de beber?"], ch:[
+        ["I would like orange juice, please.","Eu gostaria de suco de laranja, por favor.",'e2'],
+        ["Water, please.","Água, por favor.",'e2']]},
+   e2:{ npc:["And to eat? We have chicken and rice today.","E para comer? Temos frango com arroz hoje."], ch:[
+        ["I will have the chicken, please.","Vou querer o frango, por favor.",'e4'],
+        ["What do you recommend?","O que você recomenda?",'e2r']]},
+   e2r:{ npc:["I recommend the chicken. It is very good.","Eu recomendo o frango. É muito bom."], ch:[
+        ["Great, I will have it.","Ótimo, vou querer.",'e4']]},
+   e4:{ npc:["Here is your food. Enjoy your meal!","Aqui está sua comida. Bom apetite!"], ch:[
+        ["Thank you! It looks delicious.","Obrigado! Parece delicioso.",'e5']]},
+   e5:{ npc:["How was the food?","Como estava a comida?"], ch:[
+        ["It was very good, thank you.","Estava muito boa, obrigado.",'e6'],
+        ["Can I have the bill, please?","Pode trazer a conta, por favor?",'e6']]},
+   e6:{ npc:["Of course! Here is the bill. Have a good night!","Claro! Aqui está a conta. Tenha uma boa noite!"], ch:[
+        ["Thank you. Goodbye!","Obrigado. Tchau!",null]]}
+ }},
+ { id:'hotel', icon:'🏨', name:'No hotel', desc:'Faça o check-in.', start:'f0', n:{
+   f0:{ npc:["Good afternoon! Welcome to our hotel. Do you have a reservation?","Boa tarde! Bem-vindo ao nosso hotel. Você tem reserva?"], ch:[
+        ["Yes, my name is Alex.","Sim, meu nome é Alex.",'f1'],
+        ["No, I do not have a reservation.","Não, eu não tenho reserva.",'f1n']]},
+   f1:{ npc:["Perfect. Your room is ready. How many nights?","Perfeito. Seu quarto está pronto. Quantas noites?"], ch:[
+        ["Three nights, please.","Três noites, por favor.",'f2'],
+        ["Just one night.","Só uma noite.",'f2']]},
+   f1n:{ npc:["That is okay. We have a room. How many nights?","Tudo bem. Temos um quarto. Quantas noites?"], ch:[
+        ["Three nights, please.","Três noites, por favor.",'f2'],
+        ["Just one night.","Só uma noite.",'f2']]},
+   f2:{ npc:["Here is your key. Your room is on the second floor.","Aqui está sua chave. Seu quarto fica no segundo andar."], ch:[
+        ["Thank you. Where is the elevator?","Obrigado. Onde fica o elevador?",'f3'],
+        ["What time is breakfast?","A que horas é o café da manhã?",'f3b']]},
+   f3:{ npc:["It is next to the door. Enjoy your stay!","Fica ao lado da porta. Aproveite a estadia!"], ch:[
+        ["Thank you very much!","Muito obrigado!",null]]},
+   f3b:{ npc:["Breakfast is at seven o'clock. Enjoy your stay!","O café da manhã é às sete horas. Aproveite a estadia!"], ch:[
+        ["Thank you very much!","Muito obrigado!",null]]}
+ }},
+ { id:'air', icon:'✈️', name:'No aeroporto', desc:'Despache a bagagem e ache o portão.', start:'g0', n:{
+   g0:{ npc:["Hello! Passport, please.","Olá! Passaporte, por favor."], ch:[
+        ["Here is my passport.","Aqui está meu passaporte.",'g1'],
+        ["Here you are.","Aqui está.",'g1']]},
+   g1:{ npc:["Where are you going?","Para onde você vai?"], ch:[
+        ["I am going to London.","Eu vou para Londres.",'g2'],
+        ["I am going to New York.","Eu vou para Nova York.",'g2']]},
+   g2:{ npc:["Do you have any bags?","Você tem malas?"], ch:[
+        ["Yes, I have one bag.","Sim, eu tenho uma mala.",'g3'],
+        ["No, only this small bag.","Não, só esta mala pequena.",'g3']]},
+   g3:{ npc:["Okay. Here is your ticket. Your gate is number ten.","Certo. Aqui está sua passagem. Seu portão é o número dez."], ch:[
+        ["Thank you. Where is gate ten?","Obrigado. Onde fica o portão dez?",'g4'],
+        ["Thank you. What time is the flight?","Obrigado. A que horas é o voo?",'g4b']]},
+   g4:{ npc:["It is straight ahead, on the left.","Fica em frente, à esquerda."], ch:[
+        ["Thank you. Goodbye!","Obrigado. Tchau!",null]]},
+   g4b:{ npc:["The flight is at six o'clock. Have a good trip!","O voo é às seis horas. Boa viagem!"], ch:[
+        ["Thank you. Goodbye!","Obrigado. Tchau!",null]]}
+ }}
+];
+
+/* ===== Utilidades ===== */
+const $ = s => document.querySelector(s);
+const main = $('#main');
+const PASS = 0.999;   // todas as palavras precisam estar corretas
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let mode = localStorage.getItem('eb_mode') || 'guided';   // guided | challenge
+let scn, node, log, scores, tries;
+let auto = localStorage.getItem('eb_auto') !== '0';   // modo contínuo (microfone abre sozinho)
+let session = 0, curRec = null, fails = 0, silent = 0, journey = false, jIdx = 0;
+
+const prog = () => JSON.parse(localStorage.getItem('eb_prog') || '{"xp":0,"streak":0,"last":""}');
+function addXP(n) {
+  const p = prog(), t = new Date().toISOString().slice(0, 10);
+  if (p.last !== t) {
+    const y = new Date(Date.now() - 864e5).toISOString().slice(0, 10);
+    p.streak = p.last === y ? p.streak + 1 : 1; p.last = t;
+  }
+  p.xp += n; localStorage.setItem('eb_prog', JSON.stringify(p));
+}
+
+// normaliza para comparar: números por extenso, contrações, "ok"
+const NUM = { 0:'zero',1:'one',2:'two',3:'three',4:'four',5:'five',6:'six',7:'seven',8:'eight',9:'nine',10:'ten',20:'twenty',30:'thirty' };
+const norm = s => s.toLowerCase()
+  .replace(/\b(\d+)\b/g, (m, n) => NUM[n] || m)
+  .replace(/\bi'm\b/g, 'i am').replace(/\bit's\b/g, 'it is').replace(/\bthat's\b/g, 'that is')
+  .replace(/\bwhat's\b/g, 'what is').replace(/\bi'll\b/g, 'i will').replace(/\blet's\b/g, 'let us')
+  .replace(/\bdon't\b/g, 'do not').replace(/\bok\b/g, 'okay');
+const words = s => norm(s).replace(/[^a-z' ]/g, ' ').replace(/\s+/g, ' ').trim().split(' ').filter(Boolean);
+
+// palavras que o reconhecedor costuma confundir por soarem igual
+const HOMO = [['to','too','two'],['for','four'],['no','know'],['by','buy','bye'],['one','won'],['their','there'],['here','hear'],['right','write'],['night','knight'],['our','hour'],['see','sea'],['whether','weather']];
+function lev(a, b) {
+  const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]);
+  for (let j = 1; j <= b.length; j++) d[0][j] = j;
+  for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++)
+    d[i][j] = Math.min(d[i-1][j] + 1, d[i][j-1] + 1, d[i-1][j-1] + (a[i-1] === b[j-1] ? 0 : 1));
+  return d[a.length][b.length];
+}
+// palavra igual (ou quase, em palavras longas, ou homófona)
+const same = (x, y) => x === y || (x.length >= 6 && y.length >= 6 && lev(x, y) <= 1) || HOMO.some(g => g.includes(x) && g.includes(y));
+
+// compara esperado x ouvido (LCS) -> marca cada palavra esperada
+function compare(expected, heard) {
+  const a = words(expected), b = words(heard);
+  const dp = Array.from({ length: a.length + 1 }, () => Array(b.length + 1).fill(0));
+  for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++)
+    dp[i][j] = same(a[i-1], b[j-1]) ? dp[i-1][j-1] + 1 : Math.max(dp[i-1][j], dp[i][j-1]);
+  const hit = Array(a.length).fill(false);
+  let i = a.length, j = b.length;
+  while (i > 0 && j > 0) {
+    if (same(a[i-1], b[j-1])) { hit[i-1] = true; i--; j--; }
+    else if (dp[i-1][j] >= dp[i][j-1]) i--; else j--;
+  }
+  return { a, hit, score: a.length ? dp[a.length][b.length] / a.length : 0 };
+}
+
+function speak(text, rate = 0.9, cb, onb) {
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = 'en-US'; u.rate = rate;
+  if (cb) u.onend = cb;
+  if (onb) u.onboundary = e => { if (e.name === 'word') onb(e.charIndex); };
+  window._u = u;   // evita o coletor de lixo do Chrome engolir o evento onend
+  speechSynthesis.speak(u);
+}
+
+/* ===== Telas ===== */
+function menu() {
+  session++; stopRec(); journey = false;
+  speechSynthesis.cancel();
+  const P = prog();
+  const hist = JSON.parse(localStorage.getItem('eb_speak') || '{}');
+  main.innerHTML = `
+    ${SR ? '' : '<div class="note">⚠️ Seu navegador não suporta reconhecimento de voz. Use o <b>Chrome</b> ou <b>Edge</b> para falar. Por enquanto você poderá digitar.</div>'}
+    <div class="note" style="display:flex;gap:16px;color:var(--txt)"><span>⭐ <b>${P.xp}</b> XP</span><span>🔥 <b>${P.streak}</b> dia(s) seguidos</span></div>
+    <button class="scn" id="journeyBtn" style="border-color:var(--pri)"><b>🚀 Jornada completa</b><small>Todos os cenários em sequência, sem parar. Ideal para treinar contínuo.</small></button>
+    <div class="mode"><span>Modo:</span>
+      <button class="ghost ${mode==='guided'?'on':''}" data-m="guided">Guiado</button>
+      <button class="ghost ${mode==='challenge'?'on':''}" data-m="challenge">Desafio</button>
+      <button class="ghost ${auto?'on':''}" id="autoBtn" title="O microfone abre sozinho depois que o Buddy fala">🎙️ Contínuo: ${auto?'ligado':'desligado'}</button></div>
+    <div class="note">${mode==='guided' ? 'Guiado: você vê a frase em inglês e a tradução.' : 'Desafio: você só vê o português. Tente dizer em inglês de cabeça! (use 👁 se travar)'}</div>
+    ${SCENARIOS.map(s => `<button class="scn" data-id="${s.id}"><b>${s.icon} ${s.name}</b>
+      <small>${s.desc}${hist[s.id] ? ` · Melhor nota: ${hist[s.id]}%` : ''}</small></button>`).join('')}`;
+  main.querySelectorAll('.mode button[data-m]').forEach(b => b.onclick = () => { mode = b.dataset.m; localStorage.setItem('eb_mode', mode); menu(); });
+  $('#autoBtn').onclick = () => { auto = !auto; localStorage.setItem('eb_auto', auto ? '1' : '0'); menu(); };
+  $('#journeyBtn').onclick = () => { journey = true; jIdx = 0; start(SCENARIOS[0]); };
+  main.querySelectorAll('.scn').forEach(b => b.onclick = () => start(SCENARIOS.find(s => s.id === b.dataset.id)));
+}
+
+function start(s) { scn = s; node = s.start; log = []; scores = []; turn(); }
+
+function turn() {
+  session++; stopRec(); fails = 0; silent = 0;
+  const tok = session;
+  const n = scn.n[node];
+  main.innerHTML = `<button class="ghost" id="back">← Cenários</button>
+    ${journey ? `<span style="color:var(--mut);font-size:14px;margin-left:8px">Jornada ${jIdx + 1}/${SCENARIOS.length} · ${scn.icon} ${scn.name}</span>` : ''}
+    <div id="log"></div>
+    <div id="npc"></div>
+    ${SR ? `<div style="display:flex;gap:10px;align-items:center;margin:10px 0"><div id="status" style="flex:1;color:var(--mut);font-size:14px"></div><button class="ghost" id="listenNow">🎤 Ouvir agora</button></div>` : ''}
+    <div id="choices"></div>`;
+  if (SR) $('#listenNow').onclick = () => { silent = 0; speechSynthesis.cancel(); autoListen(session); };
+  $('#back').onclick = menu;
+  $('#log').innerHTML = log.map(l => `<div class="bubble ${l.who}">${l.en}<span class="pt">${l.pt}</span></div>`).join('');
+  // fala do Buddy: palavras destacadas conforme ele fala (para acompanhar a leitura)
+  const spans = [];
+  n.npc[0].replace(/\S+/g, (m, off) => { spans.push(`<span class="kw" data-o="${off}">${m}</span>`); });
+  $('#npc').innerHTML = `<div class="bubble npc" style="font-size:21px">${spans.join(' ')} <button class="ghost" id="rep" style="padding:2px 8px">🔊</button><span class="pt" style="font-size:16px">${n.npc[1]}</span></div>`;
+  const hl = off => { let cur = null; $('#npc').querySelectorAll('.kw').forEach(k => { k.classList.remove('on'); if (+k.dataset.o <= off) cur = k; }); if (cur) cur.classList.add('on'); };
+  const clr = () => $('#npc').querySelectorAll('.kw').forEach(k => k.classList.remove('on'));
+  const sayNpc = rate => speak(n.npc[0], rate, () => { clr(); if (tok === session && auto && SR) setTimeout(() => autoListen(tok), 250); }, hl);
+  $('#rep').onclick = () => { stopRec(); sayNpc(0.9); };
+  tries = {};
+  setStatus(auto && SR ? '🔊 Buddy está falando... leia e acompanhe' : '');
+  sayNpc(0.9);
+  $('#choices').innerHTML = `<div style="font-size:17px;font-weight:600;margin-top:16px">🗣️ Sua vez! Diga uma das opções:</div>` +
+    n.ch.map((c, i) => `<div class="choice" data-i="${i}">
+      <div class="en" style="font-size:20px">${mode==='guided' ? c[0] : '<span class="hid">• • •</span>'}</div>
+      <div class="pt" style="color:var(--mut);font-size:15px">${c[1]}</div>
+      <div class="row">
+        ${auto && SR ? '' : SR ? `<button class="mic" data-i="${i}">🎤 Falar</button>` : `<input class="typed" placeholder="Digite em inglês" style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--line)"><button class="send" data-i="${i}">Enviar</button>`}
+        <button class="ghost lis" data-i="${i}">🔊 Modelo</button>
+        <button class="ghost slow" data-i="${i}">🐢 Devagar</button>
+        ${mode==='challenge' ? `<button class="ghost eye" data-i="${i}">👁</button>` : ''}
+      </div>
+      <div class="res"></div></div>`).join('');
+  const box = i => main.querySelector(`.choice[data-i="${i}"]`);
+  main.querySelectorAll('.lis').forEach(b => b.onclick = () => speak(n.ch[b.dataset.i][0]));
+  main.querySelectorAll('.slow').forEach(b => b.onclick = () => speak(n.ch[b.dataset.i][0], 0.55));
+  main.querySelectorAll('.eye').forEach(b => b.onclick = () => { box(b.dataset.i).querySelector('.en').textContent = n.ch[b.dataset.i][0]; });
+  main.querySelectorAll('.mic').forEach(b => b.onclick = () => listen(+b.dataset.i, b));
+  main.querySelectorAll('.send').forEach(b => b.onclick = () => {
+    const i = +b.dataset.i; evaluate(i, [box(i).querySelector('.typed').value]);
+  });
+}
+
+const setStatus = t => { const el = $('#status'); if (el) el.innerHTML = t; };
+function stopRec() { const r = curRec; curRec = null; if (r) { try { r.abort(); } catch (_) {} } }
+
+// Escuta contínua: abre o microfone sozinho e descobre qual das opções o aluno disse
+function autoListen(tok) {
+  if (tok !== session) return;
+  stopRec();
+  const n = scn.n[node];
+  const rec = new SR(); curRec = rec;
+  rec.lang = 'en-US'; rec.maxAlternatives = 3; rec.interimResults = true;
+  let got = false;
+  setStatus('🎙️ <b style="color:var(--bad)">Ouvindo...</b> pode falar, sem pressa');
+  rec.onresult = e => {
+    if (tok !== session) return;
+    const r = e.results[e.results.length - 1];
+    if (!r.isFinal) { setStatus(`🎙️ <b style="color:var(--bad)">Ouvindo:</b> “${r[0].transcript}”`); return; }
+    got = true;
+    const heard = Array.from(r).map(x => x.transcript);
+    let bi = 0, bs = -1;
+    n.ch.forEach((c, i) => heard.forEach(h => { const s = compare(c[0], h).score; if (s > bs) { bs = s; bi = i; } }));
+    if (bs < 0.35) {
+      fails++;
+      setStatus(`Eu ouvi: "${heard[0]}". Não entendi, diga uma das opções acima.`);
+      setTimeout(() => autoListen(tok), 900);
+    } else evaluate(bi, heard, true);
+  };
+  rec.onerror = e => { if (e.error === 'not-allowed') { setStatus('⚠️ Permita o microfone no navegador e clique em 🎤 Ouvir agora.'); curRec = null; } };
+  rec.onend = () => {
+    if (tok !== session || got || curRec !== rec) return;
+    silent++;
+    if (silent >= 40) { setStatus('⏸ Pausado. Clique em 🎤 Ouvir agora para continuar.'); curRec = null; return; }
+    if (silent === 4) setStatus('🙂 Sem pressa! O Buddy espera você. Leia as opções e fale quando quiser.');
+    setTimeout(() => autoListen(tok), 300);
+  };
+  try { rec.start(); } catch (_) {}
+}
+
+function listen(i, btn) {
+  speechSynthesis.cancel(); stopRec();
+  const rec = new SR();
+  rec.lang = 'en-US'; rec.maxAlternatives = 3; rec.interimResults = false;
+  btn.classList.add('rec'); btn.textContent = '🎙️ Ouvindo...';
+  const done = () => { btn.classList.remove('rec'); btn.textContent = '🎤 Falar'; };
+  rec.onresult = e => { done(); evaluate(i, Array.from(e.results[0]).map(r => r.transcript)); };
+  rec.onerror = e => { done(); showRes(i, `<span class="w-bad">Não consegui ouvir (${e.error === 'not-allowed' ? 'permita o microfone' : e.error}).</span>`); };
+  rec.onend = done;
+  try { rec.start(); } catch (_) { done(); }
+}
+
+const showRes = (i, html) => { main.querySelector(`.choice[data-i="${i}"] .res`).innerHTML = html; };
+
+function evaluate(i, heardList, viaAuto = false) {
+  const tok = session;
+  const c = scn.n[node].ch[i];
+  // melhor alternativa do reconhecedor
+  let best = null, bestHeard = '';
+  heardList.forEach(h => { const r = compare(c[0], h); if (!best || r.score > best.score) { best = r; bestHeard = h; } });
+  const pct = Math.round(best.score * 100);
+  const colored = best.a.map((w, k) => `<span class="${best.hit[k] ? 'w-ok' : 'w-bad'}">${w}</span>`).join(' ');
+  tries[i] = (tries[i] || 0) + 1;
+  if (best.score >= PASS) {   // só passa com TODAS as palavras corretas
+    const ls = Math.max(40, 100 - 20 * fails);   // nota da frase: cai a cada tentativa errada
+    showRes(i, `${colored}<div class="score" style="color:var(--ok)">✅ ${fails ? 'Agora sim! Muito bem!' : 'Perfeito!'}</div>
+      <div style="color:var(--mut);font-size:13px">Eu ouvi: "${bestHeard}"</div>`);
+    stopRec(); setStatus('✅ Ótimo! Vamos continuar...'); addXP(Math.round(ls / 10)); fails = 0;
+    scores.push(ls);
+    log.push({ who:'npc', en:scn.n[node].npc[0], pt:scn.n[node].npc[1] }, { who:'me', en:c[0], pt:c[1] });
+    main.querySelectorAll('button').forEach(b => { if (b.id !== 'back') b.disabled = true; });
+    const next = c[2];
+    setTimeout(() => { if (next) { node = next; turn(); } else finish(); }, 1600);
+  } else {
+    fails++;
+    const wrong = best.a.filter((w, k) => !best.hit[k]);
+    showRes(i, `${colored}<div class="score" style="color:var(--bad)">Quase! Faltou falar: <b>${wrong.join(', ')}</b></div>
+      <div style="color:var(--mut);font-size:13px">Eu ouvi: "${bestHeard || '(nada)'}"</div>
+      ${(tries[i] >= 4 || fails >= 4) ? '<button class="ghost skip" style="margin-top:8px">Não consigo, pular ⏭</button>' : ''}`);
+    if (viaAuto && tok === session) {
+      // o Buddy mostra a pronúncia das palavras erradas e escuta de novo
+      setStatus(`🐢 Ouça e repita: <b>${wrong.join(', ')}</b>`);
+      const again = () => setTimeout(() => autoListen(tok), 300);
+      speak(wrong.join('. '), 0.6, fails >= 2 ? () => speak(c[0], 0.6, again) : again);
+    }
+    const sk = main.querySelector(`.choice[data-i="${i}"] .skip`);
+    if (sk) sk.onclick = () => { scores.push(0); log.push({ who:'npc', en:scn.n[node].npc[0], pt:scn.n[node].npc[1] }, { who:'me', en:c[0], pt:c[1] }); if (c[2]) { node = c[2]; turn(); } else finish(); };
+  }
+}
+
+function finish() {
+  session++; stopRec();
+  const tk = session;
+  const avg = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
+  const hist = JSON.parse(localStorage.getItem('eb_speak') || '{}');
+  hist[scn.id] = Math.max(hist[scn.id] || 0, avg);
+  localStorage.setItem('eb_speak', JSON.stringify(hist));
+  main.innerHTML = `<div id="log">${log.map(l => `<div class="bubble ${l.who}">${l.en}<span class="pt">${l.pt}</span></div>`).join('')}</div>
+    <div class="end"><div class="big">${avg}%</div>
+    <p>${avg >= 90 ? 'Excelente pronúncia! 🌟' : avg >= 75 ? 'Muito bom! 👏' : 'Boa tentativa! Repita para melhorar. 💪'}</p>
+    ${journey && jIdx < SCENARIOS.length - 1 ? `<p class="mut" style="color:var(--mut)">Próximo: ${SCENARIOS[jIdx + 1].icon} ${SCENARIOS[jIdx + 1].name} (começa sozinho em 6s)</p><button id="next">Próximo cenário ▶</button> ` : (journey ? '<p>🏆 Jornada completa! Parabéns!</p>' : '')}
+    <button class="ghost" id="again">Repetir</button> <button class="ghost" id="menu">Outros cenários</button></div>`;
+  $('#again').onclick = () => start(scn); $('#menu').onclick = menu;
+  if (journey && jIdx < SCENARIOS.length - 1) {
+    const go = () => { jIdx++; start(SCENARIOS[jIdx]); };
+    $('#next').onclick = go;
+    if (auto) setTimeout(() => { if (tk === session) go(); }, 6000);
+  }
+}
+
+menu();
+</script>
+</body>
+</html>
